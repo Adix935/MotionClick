@@ -12,7 +12,6 @@ import time
 from PIL import Image
 import customtkinter as ctk
 
-# Importăm modulele create de voi
 import pyautogui
 from mouse_engine import MouseController
 from gesture_logic import GestureProcessor
@@ -39,9 +38,9 @@ current_state = {
 CENTER_X, CENTER_Y = 0.5, 0.5
 DEADZONE = 0.04   
 MAX_SPEED = 150
-MIN_SPEED = 5.0
+MIN_SPEED = 4.0
 
-# Multiplicator pentru scroll
+# Scrolling Multiplier
 SCROLL_MULTIPLIER = 3
 
 is_calibrated = False
@@ -63,15 +62,14 @@ ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 
 HELP = (
-    "Înclină capul — nasul mută cursorul. În centrul joystick-ului stă pe loc.\n"
-    "Wink stânga — click stânga. Wink dreapta — click dreapta.\n"
-    "Două clipiri cu ambii ochi — dublu click.\n"
-    "Ambii ochi ținuți peste 3 secunde — pauză sau trezire.\n"
-    "Ambii ochi 0,4 s, până auzi bipul — prinde. Deschide ochii și mută cu nasul.\n"
-    "Wink stânga lasă obiectul.\n"
-    "Gura deschisă și nasul — scroll sus, jos, stânga, dreapta.\n"
-    "Buze țuguiate — centrul joystick-ului se mută unde e capul.\n"
-    "C recalibrează. Space oprește de urgență, oriunde."
+    "Tilt head — nose moves the cursor. Stays still in the joystick center.\n"
+    "Left wink — left click. Right wink — right click.\n"
+    "Double blink with both eyes — double click.\n"
+    "Both eyes closed for over 3 seconds — sleep or wake up.\n"
+    "Both eyes closed for 0.4s, until you hear a beep — grab. Open eyes and move with nose.\n"
+    "Left wink drops the object.\n"
+    "Open mouth and nose — scroll up, down, left, right.\n"
+    "Puckered lips — joystick center moves to where the head is."
 )
 
 class App:
@@ -91,50 +89,42 @@ class App:
 
         # --- GUI Elements ---
         ctk.CTkLabel(root, text="MotionClick", font=ctk.CTkFont(size=24, weight="bold")).pack(pady=(16, 4))
-        self.status = ctk.CTkLabel(root, text="Oprit", text_color="gray", font=ctk.CTkFont(size=16, weight="bold"))
+        self.status = ctk.CTkLabel(root, text="Stopped", text_color="gray", font=ctk.CTkFont(size=16, weight="bold"))
         self.status.pack()
-        self.detail = ctk.CTkLabel(root, text="Pornește camera și ține capul drept pentru calibrare.", justify="left")
+        self.detail = ctk.CTkLabel(root, text="Open the camera and keep your head still for calibration.", justify="left")
         self.detail.pack(pady=(4, 8))
         
-        self.video = ctk.CTkLabel(root, text="Camera oprită", width=440, height=330, fg_color="#141414")
+        self.video = ctk.CTkLabel(root, text="Camera closed", width=440, height=330, fg_color="#141414")
         self.video.pack(padx=20, pady=(0, 10))
 
-        # Sliders (Mapate vizual doar pe zona moartă, logica internă e identică)
-        self.zone_label = ctk.CTkLabel(root, text=f"Zonă neutră (Deadzone): {DEADZONE:.2f}")
+        # Sliders
+        self.zone_label = ctk.CTkLabel(root, text=f"Neutral zone (Deadzone): {DEADZONE:.2f}")
         self.zone_label.pack(anchor="w", padx=24)
         self.zone_slider = ctk.CTkSlider(root, from_=0.02, to=0.15, number_of_steps=26, command=self._update_deadzone)
         self.zone_slider.set(DEADZONE)
         self.zone_slider.pack(fill="x", padx=24, pady=(0, 12))
 
-        self.min_speed_label = ctk.CTkLabel(root, text=f"Viteză minimă de pornire: {MIN_SPEED:.1f}")
+        self.min_speed_label = ctk.CTkLabel(root, text=f"Minimum starting speed: {MIN_SPEED:.1f}")
         self.min_speed_label.pack(anchor="w", padx=24)
         self.min_speed_slider = ctk.CTkSlider(root, from_=1.0, to=20.0, number_of_steps=19, command=self._update_min_speed)
         self.min_speed_slider.set(MIN_SPEED)
         self.min_speed_slider.pack(fill="x", padx=24, pady=(0, 12))
 
-        self.max_speed_label = ctk.CTkLabel(root, text=f"Viteză maximă (la marginea ecranului): {MAX_SPEED:.0f}")
+        self.max_speed_label = ctk.CTkLabel(root, text=f"Maximum Speed: {MAX_SPEED:.0f}")
         self.max_speed_label.pack(anchor="w", padx=24)
         self.max_speed_slider = ctk.CTkSlider(root, from_=50.0, to=300.0, number_of_steps=50, command=self._update_max_speed)
         self.max_speed_slider.set(MAX_SPEED)
         self.max_speed_slider.pack(fill="x", padx=24, pady=(0, 12))
 
         self.start_btn = ctk.CTkButton(
-            root, text="Pornește", height=44, fg_color="#2FA572", hover_color="#107C41",
+            root, text="Start", height=44, fg_color="#2FA572", hover_color="#107C41",
             font=ctk.CTkFont(size=16, weight="bold"), command=self._toggle,
         )
         self.start_btn.pack(fill="x", padx=24, pady=(4, 6))
         
-        self.recal_btn = ctk.CTkButton(root, text="Recalibrează (C)", command=self._recalibrate)
-        self.recal_btn.pack(fill="x", padx=24, pady=(0, 8))
-        
         ctk.CTkLabel(root, text=HELP, justify="left", wraplength=470, text_color="#bdbdbd").pack(padx=24, pady=(0, 12))
 
         # Keybinds
-        root.protocol("WM_DELETE_WINDOW", self._close)
-        root.bind_all("<c>", self._recal_key)
-        root.bind_all("<C>", self._recal_key)
-        root.bind_all("<q>", lambda _event: self._close())
-        root.bind_all("<Q>", lambda _event: self._close())
         root.bind_all("<space>", self._space_key)
         
         self._refresh()
@@ -142,17 +132,17 @@ class App:
     def _update_deadzone(self, value):
         global DEADZONE
         DEADZONE = round(float(value), 3)
-        self.zone_label.configure(text=f"Zonă neutră (Deadzone): {DEADZONE:.2f}")
+        self.zone_label.configure(text=f"Neutral Zone (Deadzone): {DEADZONE:.2f}")
 
     def _update_min_speed(self, value):
         global MIN_SPEED
         MIN_SPEED = round(float(value), 1)
-        self.min_speed_label.configure(text=f"Viteză minimă de pornire: {MIN_SPEED:.1f}")
+        self.min_speed_label.configure(text=f"Minimum Cursor Starting Speed: {MIN_SPEED:.1f}")
 
     def _update_max_speed(self, value):
         global MAX_SPEED
         MAX_SPEED = round(float(value), 0)
-        self.max_speed_label.configure(text=f"Viteză maximă (la marginea ecranului): {MAX_SPEED:.0f}")
+        self.max_speed_label.configure(text=f"Maximum Cursor speed: {MAX_SPEED:.0f}")
 
     def _toggle(self):
         if self.running:
@@ -161,8 +151,8 @@ class App:
         
         self.stop_event.clear()
         self.running = True
-        self.start_btn.configure(text="Oprește", fg_color="#E81123", hover_color="#B50E1B")
-        self.status.configure(text="Pornesc camera...", text_color="#F5C542")
+        self.start_btn.configure(text="Close", fg_color="#E81123", hover_color="#B50E1B")
+        self.status.configure(text="Opening Camera...", text_color="#F5C542")
         self.worker = threading.Thread(target=self._worker_loop, daemon=True)
         self.worker.start()
 
@@ -186,11 +176,10 @@ class App:
         self.root.destroy()
 
     def _worker_loop(self):
-        # Aducem toate variabilele globale afectate în acest thread
         global CENTER_X, CENTER_Y, is_calibrated, calibration_frames, current_state
         global MIN_SPEED, MAX_SPEED
         
-        # Inițializăm modulele exact cum erau în scriptul tău
+        # Initializing modules
         screen_w, screen_h = pyautogui.size()
         mouse = MouseController(screen_w, screen_h)
         logic = GestureProcessor() 
@@ -204,8 +193,8 @@ class App:
         
         cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
         
-        print("=== MotionClick - Produs Final (GUI) ===")
-        status_msg = "Pornesc camera..."
+        print("=== MotionClick ===")
+        status_msg = "Opening Camera..."
         status_col = "#F5C542"
         status_timer = 0
 
@@ -215,7 +204,6 @@ class App:
                 if not success: 
                     break
 
-                # LOGICA TA EXACTĂ DE AICI ÎNCOLO
                 image = cv2.flip(image, 1)
                 h, w, _ = image.shape
                 rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -232,13 +220,13 @@ class App:
 
                         if not is_calibrated:
                             calibration_frames.append((nose.x, nose.y))
-                            cv2.putText(image, f"Calibrare pozitie neutra... {len(calibration_frames)}/{CALIBRATION_FRAME_COUNT}",
+                            cv2.putText(image, f"Calibrating Neutral Position... {len(calibration_frames)}/{CALIBRATION_FRAME_COUNT}",
                                         (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
                             if len(calibration_frames) >= CALIBRATION_FRAME_COUNT:
                                 CENTER_X = sum(f[0] for f in calibration_frames) / len(calibration_frames)
                                 CENTER_Y = sum(f[1] for f in calibration_frames) / len(calibration_frames)
                                 is_calibrated = True
-                                print(f">> Calibrare finalizata! Nou Centru: ({CENTER_X:.3f}, {CENTER_Y:.3f}) <<")
+                                print(f">> Calibration Finished! New Center: ({CENTER_X:.3f}, {CENTER_Y:.3f}) <<")
                             
                         
                         # Ratios
@@ -259,7 +247,7 @@ class App:
                         if face_width > 0:
                             mouth_width_ratio = mouth_h_dist / face_width
                             
-                            # Dacă buzele sunt țuguiate, lățimea gurii scade sub 33% din lățimea feței
+                            # Pluckered lips
                             if mouth_width_ratio < 0.33:
                                 CENTER_X = current_state["nose_x"]
                                 CENTER_Y = current_state["nose_y"]
@@ -311,7 +299,7 @@ class App:
                                     winsound.Beep(2500, 200) 
 
                             if comenzi["drag_ready_beep"]:
-                                print(">>>>> AI-UL A DECLANSAT BEEP-UL DE 0.4s! <<<<<")
+                                print(">>>>> BEEPING FOR DRAG CLICK! <<<<<")
                                 threading.Thread(target=winsound.Beep, args=(1500, 100), daemon=True).start()
                             
                             if comenzi["toggle_sleep"]: 
@@ -325,12 +313,11 @@ class App:
                                 else:
                                     threading.Thread(target=winsound.Beep, args=(1500, 250), daemon=True).start()
 
-                            # Kill-Switch pe tasta Space (Acum e capturat controlat de thread)
+                            # Kill-Switch on Space key
                             if mouse.check_failsafe():
-                                print("! Failsafe declansat !")
+                                print("! Failsafe !")
                                 raise KeyboardInterrupt
 
-                        # Grafica lui Persoana 1
                         center_px = (int(CENTER_X * w), int(CENTER_Y * h))
                         nose_px = (int(current_state["nose_x"] * w), int(current_state["nose_y"] * h))
                         deadzone_radius_px = int(DEADZONE * w)
@@ -346,26 +333,22 @@ class App:
                         if not in_deadzone:
                             cv2.line(image, center_px, nose_px, (0, 165, 255), 2)
 
-                        # HUD - Status pe ecran
+                        # HUD
                         if is_calibrated:
                             if logic.is_sleeping:
                                 cv2.putText(image, "SLEEP MODE", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
                             elif logic.is_dragging:
                                 cv2.putText(image, "DRAG MODE", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2)
                             else:
-                                cv2.putText(image, "ACTIV", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                                cv2.putText(image, "ACTIVE", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
                             
                         debugger.draw_hud(image, current_state, mouse_velocity_x, mouse_velocity_y)
                         debugger.print_terminal(current_state, mouse_velocity_x, mouse_velocity_y)
 
-                # =======================================================
-                # În loc de cv2.imshow și cv2.waitKey, comunicăm cu interfața grafică:
-                # =======================================================
-
                 current_time = time.time()
                         
                 if not is_calibrated:
-                    status_msg = "Calibrare..."
+                    status_msg = "Calibration..."
                     status_col = "#F5C542"
                 elif is_calibrated and logic.is_sleeping:
                     status_msg = "SLEEP MODE"
@@ -374,7 +357,7 @@ class App:
                     status_msg = "DRAG MODE"
                     status_col = "#FFA500"
                 elif 'mouth_width_ratio' in locals() and mouth_width_ratio < 0.33:
-                    status_msg = "Față țuguiată (Centrare)"
+                    status_msg = "Pluckered lips (Centrare)"
                     status_col = "#D58BFF"
                 elif is_calibrated and comenzi.get("scroll") != (0.0, 0.0):
                     status_msg = "Scroll..."
@@ -383,29 +366,28 @@ class App:
                     # Stări tranzitorii (rapide)
                     if is_calibrated:
                         if comenzi.get("double_click"):
-                            status_msg = "Dublu Click!"
+                            status_msg = "Double Click!"
                             status_col = "#FFFFFF"
                             status_timer = current_time + 0.8
                         elif comenzi.get("left_click"):
-                            status_msg = "Click Stânga"
+                            status_msg = "Left Click"
                             status_col = "#FFFFFF"
                             status_timer = current_time + 0.8
                         elif comenzi.get("right_click"):
-                            status_msg = "Click Dreapta"
+                            status_msg = "Right Click"
                             status_col = "#FFFFFF"
                             status_timer = current_time + 0.8
                     
                     if current_time > status_timer:
-                        status_msg = "Activ"
+                        status_msg = "Active"
                         status_col = "#2FA572"
         
                 if self.recal_event.is_set():
                     CENTER_X = current_state["nose_x"]
                     CENTER_Y = current_state["nose_y"]
-                    print(f">> Recalibrare manuala reusita: Centru nou ({CENTER_X:.3f}, {CENTER_Y:.3f}) <<")
+                    print(f">> Manual Recalibration Completed: New Center ({CENTER_X:.3f}, {CENTER_Y:.3f}) <<")
                     self.recal_event.clear()
 
-                # Trimitem imaginea către main thread pentru CustomTkinter
                 rgb_render = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                 with self.lock:
                     self.latest_frame = rgb_render
@@ -413,34 +395,33 @@ class App:
                     self.current_status_col = status_col
 
         except KeyboardInterrupt:
-            print("\nProgram oprit de utilizator (Kill-Switch).")
+            print("\nProgram ended by used (Kill-Switch).")
         except Exception as e:
-            print(f"\n[EROARE] Programul s-a oprit: {e}")
+            print(f"\n[EROARE] Program Stopped: {e}")
             import traceback
             traceback.print_exc()
         finally:
             cap.release()
             hud_overlay.close()
             voice.stop()
-            print("Camera eliberata. La revedere!")
-            # Resetăm butoanele GUI la final
+            print("Camera stopped. Goodbye!")
+            # Resseting GUI Buttons
             self.running = False
 
     def _refresh(self):
-        # Actualizăm interfața cu noile date din thread
+        # Updating UI with new data
         try:
             if self.running:
                 with self.lock:
                     frame = getattr(self, "latest_frame", None)
-                    # Prelucrăm mesajul trimis din worker (dacă nu există încă, scrie Activ)
+                    # Getting message from atributes
                     s_msg = getattr(self, "current_status_msg", "Activ")
                     s_col = getattr(self, "current_status_col", "#2FA572")
                 
-                # Modificăm label-ul din GUI[cite: 3]
+                # Modifying GUI status
                 self.status.configure(text=s_msg, text_color=s_col)
                 
                 if frame is not None:
-                    # Transformăm imaginea în format compatibil CustomTkinter
                     pil_img = Image.fromarray(frame)
                     ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(pil_img.width, pil_img.height))
                     self.video.configure(image=ctk_img, text="")
@@ -450,12 +431,10 @@ class App:
         except Exception as e:
             pass
 
-        # Apelăm funcția din nou peste 33ms (~30 FPS)
         if self.root.winfo_exists():
             self.root.after(33, self._refresh)
 
 def main():
-    # Eliminăm avertizările de scalare monitor din Windows
     try:
         import ctypes
         ctypes.windll.shcore.SetProcessDpiAwareness(1)
