@@ -1,13 +1,10 @@
-<<<<<<< HEAD
-venv/
-__pycache__/
-=======
+# venvs
 myenv/
 venv/
 env/
 
+# Cache Python
 __pycache__/
 *.py[cod]
 
 .vscode/
->>>>>>> a7f0d9c30b4ba6b119b3f462698814ec71ec5a99
