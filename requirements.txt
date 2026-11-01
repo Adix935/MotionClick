@@ -1,0 +1,7 @@
+opencv-python==5.0.0.93
+mediapipe==0.10.9
+customtkinter==6.0.0
+PyAutoGUI==0.9.54
+SpeechRecognition==3.17.0
+keyboard==0.13.5
+PyAudio==0.2.14
